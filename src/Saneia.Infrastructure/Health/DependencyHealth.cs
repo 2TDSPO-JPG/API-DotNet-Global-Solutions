@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Saneia.Api.Data;
+using Microsoft.Extensions.DependencyInjection;
+using Saneia.Infrastructure.Persistence;
 
-namespace Saneia.Api.Monitoring;
+namespace Saneia.Infrastructure.Health;
 
-public sealed class TelemetryHealth(IServiceScopeFactory scopes) : IHealthCheck
+internal sealed class TelemetryHealth(IServiceScopeFactory scopes) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
     {
@@ -17,7 +18,7 @@ public sealed class TelemetryHealth(IServiceScopeFactory scopes) : IHealthCheck
     }
 }
 
-public sealed class JavaHealth(IHttpClientFactory clients) : IHealthCheck
+internal sealed class JavaHealth(IHttpClientFactory clients) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
     {

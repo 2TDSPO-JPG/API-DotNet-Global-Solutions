@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Saneia.Api.Monitoring;
+using Saneia.Application.Monitoring;
+using Saneia.Infrastructure.Catalog;
 
 namespace Saneia.Tests;
 

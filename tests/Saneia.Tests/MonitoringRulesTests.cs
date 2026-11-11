@@ -1,4 +1,4 @@
-using Saneia.Api.Monitoring;
+using Saneia.Domain.Telemetry;
 
 namespace Saneia.Tests;
 
@@ -26,11 +26,28 @@ public sealed class MonitoringRulesTests
     public void EstimateRequiresAnIncreasingTrend()
     {
         var now = DateTimeOffset.UtcNow;
-        Sample SampleAt(DateTimeOffset at, decimal volume) =>
-            new(Guid.NewGuid().ToString(), at, volume, null, "normal", 100, 80, "test", null);
-        var older = SampleAt(now.AddMinutes(-30), 60);
-        Assert.Equal(0.5, MonitoringRules.EstimateHours([older, SampleAt(now, 70)], 80));
-        Assert.Null(MonitoringRules.EstimateHours([older, SampleAt(now, 55)], 80));
-        Assert.Null(MonitoringRules.EstimateHours([older], 80));
+        Assert.Equal(0.5, MonitoringRules.EstimateHours(now.AddMinutes(-30), 60, now, 70, 80));
+        Assert.Null(MonitoringRules.EstimateHours(now.AddMinutes(-30), 60, now, 55, 80));
+        Assert.Null(MonitoringRules.EstimateHours(now, 60, now, 70, 80));
+    }
+
+    [Fact]
+    public void AlarmRequiresTwoConsecutiveReadingsBelowLimitToRecover()
+    {
+        var cursor = new SensorCursor { SensorId = "21" };
+
+        AlarmChange Apply(long tick, string status) => cursor.Apply(new Measurement
+        {
+            SensorId = "21", DeviceId = "S21", SampleId = tick.ToString(),
+            AtTicks = tick, Status = status, Source = "test"
+        });
+
+        var opened = Assert.IsType<AlarmEvent>(Apply(1, MonitoringRules.Alarm).Opened);
+        Assert.Null(Apply(2, MonitoringRules.Normal).ClosedId);
+        Assert.Null(Apply(3, MonitoringRules.Alarm).Opened);
+        Assert.Null(Apply(4, MonitoringRules.Warning).ClosedId);
+        Assert.Equal(opened.Id, cursor.ActiveAlarmId);
+        Assert.Equal(opened.Id, Apply(5, MonitoringRules.Normal).ClosedId);
+        Assert.Null(cursor.ActiveAlarmId);
     }
 }

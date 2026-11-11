@@ -2,9 +2,12 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 
-namespace Saneia.Api.Monitoring;
+using System.Net.Http.Json;
+using Saneia.Application.Monitoring;
 
-public sealed class JavaCatalog(HttpClient http)
+namespace Saneia.Infrastructure.Catalog;
+
+public sealed class JavaCatalog(HttpClient http) : ISensorCatalog
 {
     public async Task<CatalogPage> List(string bearer, int page, int size, CancellationToken cancellation)
     {
@@ -64,6 +67,3 @@ public sealed class JavaCatalog(HttpClient http)
     private static CatalogUnavailable Unavailable(HttpStatusCode code) =>
         new($"O catálogo Java respondeu com HTTP {(int)code}.");
 }
-
-public sealed record CatalogPage(CatalogSensor[] Items, int TotalPages);
-public sealed class CatalogUnavailable(string message, Exception? inner = null) : Exception(message, inner);
