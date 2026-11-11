@@ -4,40 +4,16 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Saneia.Api.Data;
+using Saneia.Application.Monitoring;
+using Saneia.Infrastructure;
 using Saneia.Api.Monitoring;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
-var catalogUrl = config["Java:BaseUrl"] ?? throw new InvalidOperationException("Configure Java:BaseUrl.");
-builder.Services.AddHttpClient<JavaCatalog>(http =>
-{
-    http.BaseAddress = new Uri(catalogUrl.TrimEnd('/') + "/");
-    http.Timeout = TimeSpan.FromSeconds(5);
-}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-builder.Services.AddHttpClient("java-health", http =>
-{
-    http.BaseAddress = new Uri(catalogUrl.TrimEnd('/') + "/");
-    http.Timeout = TimeSpan.FromSeconds(3);
-}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-
-var useSqlite = string.Equals(config["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
-var provider = config["Database:Provider"];
-if (!useSqlite && !string.Equals(provider, "Oracle", StringComparison.OrdinalIgnoreCase))
-    throw new InvalidOperationException("Database:Provider deve ser Oracle ou Sqlite.");
-
-builder.Services.AddDbContext<TelemetryDb>(options =>
-{
-    if (useSqlite)
-        options.UseSqlite(config.GetConnectionString("Sqlite") ?? "Data Source=saneia.local.db");
-    else
-        options.UseOracle(config.GetConnectionString("Oracle")
-            ?? throw new InvalidOperationException("Configure ConnectionStrings:Oracle."));
-});
+builder.Services.AddSaneiaInfrastructure(config);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<TelemetryService>();
 
@@ -140,21 +116,13 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddHealthChecks()
-    .AddCheck("api", () => HealthCheckResult.Healthy(), tags: ["live"])
-    .AddCheck<TelemetryHealth>("telemetry_db", tags: ["ready"])
-    .AddCheck<JavaHealth>("java_catalog", tags: ["ready"]);
+    .AddCheck("api", () => HealthCheckResult.Healthy(), tags: ["live"]);
 
 var app = builder.Build();
-if (useSqlite || config.GetValue<bool>("Database:PrintSchema"))
+if (await app.Services.PrepareTelemetryDatabase(config) is { } schema)
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    var db = scope.ServiceProvider.GetRequiredService<TelemetryDb>();
-    if (config.GetValue<bool>("Database:PrintSchema"))
-    {
-        Console.WriteLine(db.Database.GenerateCreateScript());
-        return;
-    }
-    await db.Database.EnsureCreatedAsync();
+    Console.WriteLine(schema);
+    return;
 }
 
 app.UseExceptionHandler(error => error.Run(async context =>

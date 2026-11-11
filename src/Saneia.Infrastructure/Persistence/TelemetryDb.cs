@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Saneia.Api.Data;
+using Saneia.Domain.Telemetry;
 
-public sealed class TelemetryDb(DbContextOptions<TelemetryDb> options) : DbContext(options)
+namespace Saneia.Infrastructure.Persistence;
+
+internal sealed class TelemetryDb(DbContextOptions<TelemetryDb> options) : DbContext(options)
 {
     public DbSet<Measurement> Measurements => Set<Measurement>();
     public DbSet<AlarmEvent> Events => Set<AlarmEvent>();
@@ -42,37 +44,4 @@ public sealed class TelemetryDb(DbContextOptions<TelemetryDb> options) : DbConte
             table.Property(row => row.Version).IsConcurrencyToken();
         });
     }
-}
-
-public sealed class Measurement
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public required string SensorId { get; set; }
-    public required string DeviceId { get; set; }
-    public required string SampleId { get; set; }
-    public long AtTicks { get; set; }
-    public decimal Volume { get; set; }
-    public decimal? LevelCm { get; set; }
-    public decimal Capacity { get; set; }
-    public decimal Limit { get; set; }
-    public required string Status { get; set; }
-    public required string Source { get; set; }
-    public string? Note { get; set; }
-}
-
-public sealed class AlarmEvent
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public required string SensorId { get; set; }
-    public long StartTicks { get; set; }
-    public long? EndTicks { get; set; }
-}
-
-public sealed class SensorCursor
-{
-    public required string SensorId { get; set; }
-    public long LastTicks { get; set; }
-    public long Version { get; set; }
-    public Guid? ActiveAlarmId { get; set; }
-    public int RecoveryReadings { get; set; }
 }

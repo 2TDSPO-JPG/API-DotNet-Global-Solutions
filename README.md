@@ -6,6 +6,18 @@ A operadora usa esta API para consultar o mapa, a ficha e o histórico dos reser
 - [Contrato HTTP](https://github.com/2TDSPO-JPG/SaneiaMobile/blob/main/docs/api.md)
 - [Backend Java](https://github.com/2TDSPO-JPG/API-Java-Global-Solutions)
 
+## Estrutura da solução
+
+| Projeto | Responsabilidade |
+| --- | --- |
+| `Saneia.Domain` | Medições, eventos e regras de estado e recuperação dos alarmes. |
+| `Saneia.Application` | Casos de uso de mapa, ficha e ingestão, com as interfaces `ISensorCatalog` e `ITelemetryStore`. |
+| `Saneia.Infrastructure` | Catálogo HTTP Java, persistência EF Core para Oracle/SQLite e verificações de dependências. |
+| `Saneia.Api` | Minimal APIs, autenticação, Swagger, rate limiting e configuração das dependências. |
+| `Saneia.Tests` | Testes unitários e de integração. |
+
+A aplicação depende do domínio. A infraestrutura implementa as interfaces da aplicação. O projeto da API conecta essas implementações na inicialização e converte os resultados dos casos de uso em respostas HTTP.
+
 ## Executar no Rider
 
 1. Abra `Saneia.sln` com o SDK .NET 8 instalado.

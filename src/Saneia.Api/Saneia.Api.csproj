@@ -1,16 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
   <ItemGroup>
+    <ProjectReference Include="../Saneia.Application/Saneia.Application.csproj" />
+    <ProjectReference Include="../Saneia.Infrastructure/Saneia.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.26" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.26" />
-    <PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.26301" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
   </ItemGroup>
-
 </Project>

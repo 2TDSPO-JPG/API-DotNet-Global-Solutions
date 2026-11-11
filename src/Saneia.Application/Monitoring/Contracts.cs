@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Saneia.Api.Monitoring;
+namespace Saneia.Application.Monitoring;
 
 public sealed record Coordinate(double Latitude, double Longitude);
 
@@ -22,8 +22,4 @@ public sealed record Sample(
 
 public sealed record SensorEvent(string Id, string Status, string Kind, DateTimeOffset At, DateTimeOffset? EndedAt, string Message);
 
-public sealed record ReadingInput(string? DeviceId, string? SampleId, DateTimeOffset At, [property: System.Text.Json.Serialization.JsonRequired] decimal Volume,
-    decimal? LevelCm = null, string? Note = null);
-
 public sealed record ReadingReceipt(string SensorId, string DeviceId, string SampleId, DateTimeOffset At, string Status);
-public sealed record ApiError(string Message);
