@@ -68,9 +68,9 @@ Sem medições, o sensor fica `offline` com `volume` e `lastReadingAt` nulos. Se
 
 ## Conectar o Mobile
 
-No cliente HTTP do Expo, proponha `EXPO_PUBLIC_MONITORING_API_URL=http://localhost:5085/api` para direcionar somente `GET /sensors` e `GET /sensors/{id}` ao .NET. Envie o mesmo Bearer do login. Mantenha `EXPO_PUBLIC_API_URL` para o Java, inclusive para `POST /sensors/{id}/insights`. Preserve a paginação e a leitura do cabeçalho `X-Total-Pages`.
+No Expo, defina `EXPO_PUBLIC_MONITORING_API_URL=http://localhost:5085/api` para direcionar `GET /sensors` e `GET /sensors/{id}` ao .NET. O app envia o Bearer do login e percorre as páginas usando `X-Total-Pages`. A variável `EXPO_PUBLIC_API_URL` aponta para o Java e inclui a chamada de `POST /sensors/{id}/insights`.
 
-Para Expo Web, configure a origem exata do Expo em `Cors__Origins__0` (e outros índices se necessário). Em um aparelho na mesma rede, use o IP do computador onde roda a API e configure o .NET para ouvir no endereço de rede. Entre redes, use uma URL HTTPS acessível ao aparelho. O repositório do Mobile precisa receber a configuração da segunda URL.
+Para Expo Web, configure a origem exata do Expo em `Cors__Origins__0` (e outros índices se necessário). Em um aparelho na mesma rede, use o IP do computador onde roda a API e configure o .NET para ouvir no endereço de rede. Entre redes, use uma URL HTTPS acessível ao aparelho.
 
 ## Wokwi, HiveMQ e análise do Java
 
