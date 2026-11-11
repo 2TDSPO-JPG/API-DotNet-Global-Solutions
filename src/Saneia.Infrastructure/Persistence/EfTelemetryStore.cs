@@ -53,6 +53,55 @@ internal sealed class EfTelemetryStore(TelemetryDb db) : ITelemetryStore
         db.Measurements.AsNoTracking().SingleOrDefaultAsync(row =>
             row.DeviceId == deviceId && row.SampleId == sampleId, cancellation);
 
+    public async Task<TelemetrySummary> Summarize(string id, DateTimeOffset from, DateTimeOffset to,
+        DateTimeOffset now, int intervalMinutes, decimal limit, CancellationToken cancellation)
+    {
+        var cursor = await FindCursor(id, cancellation);
+        var latestTicks = cursor?.LastTicks ?? 0;
+        var lastAt = cursor is null ? (DateTimeOffset?)null : new(latestTicks, TimeSpan.Zero);
+        var start = from.UtcTicks;
+        var end = to.UtcTicks;
+        var upperReading = Math.Min(end, latestTicks);
+        var sensorReadings = db.Measurements.AsNoTracking().Where(row => row.SensorId == id);
+        var period = sensorReadings.Where(row => row.AtTicks >= start && row.AtTicks <= upperReading);
+        var totals = await period.GroupBy(row => row.SensorId).Select(group => new
+        {
+            Count = group.Count(),
+            Min = group.Min(row => (double)row.Volume),
+            Average = group.Average(row => (double)row.Volume),
+            Above = group.Count(row => row.Status == MonitoringRules.Alarm)
+        }).SingleOrDefaultAsync(cancellation);
+        var first = await period.OrderBy(row => row.AtTicks).FirstOrDefaultAsync(cancellation);
+        var recent = await period.OrderByDescending(row => row.AtTicks).Take(2).ToArrayAsync(cancellation);
+        var last = recent.FirstOrDefault();
+        var peak = await period.OrderByDescending(row => (double)row.Volume).ThenBy(row => row.AtTicks)
+            .FirstOrDefaultAsync(cancellation);
+        var alarms = await db.Events.AsNoTracking()
+            .Where(row => row.SensorId == id && row.StartTicks <= upperReading
+                && (row.EndTicks == null || row.EndTicks >= start))
+            .GroupBy(row => row.SensorId).Select(group => new
+            {
+                Count = group.Count(),
+                Longest = group.Max(row =>
+                    (row.EndTicks == null || row.EndTicks > latestTicks || row.EndTicks > end ? end : row.EndTicks.Value)
+                    - (row.StartTicks < start ? start : row.StartTicks))
+            }).SingleOrDefaultAsync(cancellation);
+        var latest = cursor is null ? null : await sensorReadings
+            .SingleOrDefaultAsync(row => row.AtTicks == latestTicks, cancellation);
+        var offline = MonitoringRules.IsOffline(lastAt, now, intervalMinutes);
+        var status = offline ? MonitoringRules.Offline
+            : cursor?.ActiveAlarmId is not null ? MonitoringRules.Alarm
+            : latest?.Status ?? MonitoringRules.Offline;
+        var eta = !offline && recent.Length == 2 ? MonitoringRules.EstimateHours(
+            new DateTimeOffset(recent[1].AtTicks, TimeSpan.Zero), recent[1].Volume,
+            new DateTimeOffset(recent[0].AtTicks, TimeSpan.Zero), recent[0].Volume, limit) : null;
+
+        return new(totals?.Count ?? 0, (double?)first?.Volume, (double?)last?.Volume, totals?.Min,
+            (double?)peak?.Volume, peak is null ? null : new DateTimeOffset(peak.AtTicks, TimeSpan.Zero),
+            totals?.Average, (double?)(last?.Volume - first?.Volume), totals?.Above ?? 0, alarms?.Count ?? 0,
+            alarms is null ? null : TimeSpan.FromTicks(alarms.Longest).TotalHours, eta, status, lastAt);
+    }
+
     public Task<SensorCursor?> FindCursor(string sensorId, CancellationToken cancellation) =>
         db.Cursors.AsNoTracking().SingleOrDefaultAsync(row => row.SensorId == sensorId, cancellation);
 

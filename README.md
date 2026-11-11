@@ -72,7 +72,19 @@ No cliente HTTP do Expo, proponha `EXPO_PUBLIC_MONITORING_API_URL=http://localho
 
 Para Expo Web, configure a origem exata do Expo em `Cors__Origins__0` (e outros índices se necessário). Em um aparelho na mesma rede, use o IP do computador onde roda a API e configure o .NET para ouvir no endereço de rede. Entre redes, use uma URL HTTPS acessível ao aparelho. O repositório do Mobile precisa receber a configuração da segunda URL.
 
-O teste local usa gravações de exemplo pelo endpoint HTTP. A integração do Wokwi/HiveMQ e a leitura de telemetria pelo Java para os insights fazem parte da etapa posterior descrita no contrato.
+## Wokwi, HiveMQ e análise do Java
+
+1. Configure `SANEIA_INTEGRATION_KEY` com o mesmo segredo aleatório de pelo menos 32 bytes nos dois backends. Essa credencial é independente de `Jwt__SharedSecret` e fica nos servidores.
+2. Cadastre no Java o equipamento ativo `RES-07`, com capacidade de 2.000 L e limite de 1.800 L. A configuração de demonstração do .NET vincula o identificador Wokwi `S07` ao prefixo `RES-07` e usa altura útil de 200 cm e distância de 202 cm com o tanque vazio.
+3. Defina `Mqtt__Enabled=true` e inicie o .NET. O log **MQTT inscrito no tópico** confirma a assinatura. A configuração de demonstração usa o broker público HiveMQ na porta 1883 e o tópico exato do sketch. Use somente leituras fictícias nesse ambiente.
+4. Abra um [projeto Arduino com ESP32 no Wokwi](https://wokwi.com/projects/new/esp32), importe os [arquivos do circuito](wokwi/) e inicie a simulação. Ajuste a distância do HC-SR04 para 17 cm e verifique na ficha aproximadamente 1.850 L, origem `mqtt` e estado de alarme. Duas leituras consecutivas abaixo de 1.800 L fecham o alarme.
+5. No Java, configure `DOTNET_TELEMETRY_URL=http://localhost:5085/api`. O Java consulta o resumo por período em `GET /api/internal/telemetry/sensors/{id}/summary` e pode enviar os indicadores ao Gemini.
+
+O consumidor usa o catálogo Java para obter o ID, a capacidade e o limite. Ele aceita mensagens novas do dispositivo configurado, usa a hora UTC de recebimento e reaproveita a gravação idempotente por prefixo e `sampleId`. O sketch atual publica em QoS 0. O endpoint HTTP de teste continua disponível.
+
+O resumo é protegido por `X-Saneia-Integration-Key`. Ele calcula os indicadores no banco pelo período solicitado, incluindo leituras que ficaram fora das últimas 500 da ficha. O .NET agrega os eventos de alarme e informa o estado atual.
+
+Para um broker privado, configure `Mqtt__Host`, `Mqtt__Port`, `Mqtt__Tls=true`, `Mqtt__Topic`, `Mqtt__Username` e `Mqtt__Password`. Ajuste o firmware para usar o mesmo tópico, credenciais e TLS com validação do certificado. Para outro reservatório, ajuste também `Mqtt__DeviceId`, `Mqtt__Prefix`, `Mqtt__HeightCm` e `Mqtt__EmptyDistanceCm`.
 
 ## Verificação
 

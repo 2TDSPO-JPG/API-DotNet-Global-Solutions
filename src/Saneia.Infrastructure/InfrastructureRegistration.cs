@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Saneia.Application.Monitoring;
 using Saneia.Infrastructure.Catalog;
 using Saneia.Infrastructure.Health;
+using Saneia.Infrastructure.Mqtt;
 using Saneia.Infrastructure.Persistence;
 
 namespace Saneia.Infrastructure;
@@ -38,6 +39,8 @@ public static class InfrastructureRegistration
                     ?? throw new InvalidOperationException("Configure ConnectionStrings:Oracle."));
         });
         services.AddScoped<ITelemetryStore, EfTelemetryStore>();
+        if (config.GetValue<bool>("Mqtt:Enabled"))
+            services.AddHostedService<MqttIngestion>();
         services.AddHealthChecks()
             .AddCheck<TelemetryHealth>("telemetry_db", tags: ["ready"])
             .AddCheck<JavaHealth>("java_catalog", tags: ["ready"]);

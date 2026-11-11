@@ -40,13 +40,31 @@ public sealed class TelemetryService(ISensorCatalog catalog, ITelemetryStore sto
         if (item is null) return new ReadingOutcome.SensorNotFound();
         if (!string.Equals(item.Prefix, input.DeviceId, StringComparison.Ordinal))
             return new ReadingOutcome.Invalid("O deviceId deve coincidir com o prefixo do equipamento.");
-        if (input.Volume > item.Capacity)
+        return await Append(id, item.Capacity, item.Limit, input, "http", cancellation);
+    }
+
+    public async Task<ReadingOutcome> IngestMqtt(DeviceCatalog item, string sampleId, decimal volume,
+        decimal level, CancellationToken cancellation)
+    {
+        var input = new ReadingCommand(item.Prefix, sampleId, clock.GetUtcNow(), volume, level, null);
+        if (ReadingValidation.Validate(input, input.At) is { } error)
+            return new ReadingOutcome.Invalid(error);
+        var existing = await store.Find(item.Prefix, sampleId, cancellation);
+        if (existing is not null)
+            return Replay(existing, item.Id, input, "mqtt");
+        return await Append(item.Id, item.Capacity, item.Limit, input, "mqtt", cancellation);
+    }
+
+    private async Task<ReadingOutcome> Append(string id, decimal capacity, decimal limit, ReadingCommand input,
+        string source, CancellationToken cancellation)
+    {
+        if (input.Volume > capacity)
             return new ReadingOutcome.Invalid("O volume excede a capacidade cadastrada.");
 
         var cursor = await store.FindCursor(id, cancellation);
         var timestamp = input.At.UtcTicks;
         if (cursor is not null && timestamp <= cursor.LastTicks)
-            return await ReplayOrConflict(id, input,
+            return await ReplayOrConflict(id, input, source,
                 "A medição precisa ser posterior à última leitura do equipamento.", cancellation);
 
         var previousVersion = cursor?.Version;
@@ -54,28 +72,29 @@ public sealed class TelemetryService(ISensorCatalog catalog, ITelemetryStore sto
         var reading = new Measurement
         {
             SensorId = id, DeviceId = input.DeviceId!, SampleId = input.SampleId!, AtTicks = timestamp,
-            Volume = input.Volume, LevelCm = input.LevelCm, Note = input.Note, Source = "http",
-            Capacity = item.Capacity, Limit = item.Limit,
-            Status = MonitoringRules.ReadingStatus(input.Volume, item.Limit)
+            Volume = input.Volume, LevelCm = input.LevelCm, Note = input.Note, Source = source,
+            Capacity = capacity, Limit = limit,
+            Status = MonitoringRules.ReadingStatus(input.Volume, limit)
         };
 
         var alarm = cursor.Apply(reading);
         if (await store.TryAppend(reading, cursor, previousVersion, alarm, cancellation))
             return new ReadingOutcome.Created(Receipt(reading));
 
-        return await ReplayOrConflict(id, input,
+        return await ReplayOrConflict(id, input, source,
             "Outra medição foi gravada simultaneamente. Consulte a última leitura e tente novamente.", cancellation);
     }
 
-    private async Task<ReadingOutcome> ReplayOrConflict(string id, ReadingCommand input, string message,
+    private async Task<ReadingOutcome> ReplayOrConflict(string id, ReadingCommand input, string source, string message,
         CancellationToken cancellation)
     {
         var existing = await store.Find(input.DeviceId!, input.SampleId!, cancellation);
-        return existing is not null ? Replay(existing, id, input) : new ReadingOutcome.Conflict(message);
+        return existing is not null ? Replay(existing, id, input, source) : new ReadingOutcome.Conflict(message);
     }
 
-    private static ReadingOutcome Replay(Measurement row, string id, ReadingCommand input) =>
-        row.SensorId == id && row.AtTicks == input.At.UtcTicks && row.Volume == input.Volume &&
+    private static ReadingOutcome Replay(Measurement row, string id, ReadingCommand input, string source = "http") =>
+        row.SensorId == id && row.Source == source && (source == "mqtt" || row.AtTicks == input.At.UtcTicks) &&
+        row.Volume == input.Volume &&
         row.LevelCm == input.LevelCm && row.Note == input.Note
             ? new ReadingOutcome.Replayed(Receipt(row))
             : new ReadingOutcome.Conflict("Esta combinação de deviceId e sampleId já foi usada com outros dados.");

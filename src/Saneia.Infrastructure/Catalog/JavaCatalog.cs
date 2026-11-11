@@ -35,10 +35,27 @@ public sealed class JavaCatalog(HttpClient http) : ISensorCatalog
         return sensor;
     }
 
-    private async Task<HttpResponseMessage> Request(string route, string bearer, CancellationToken cancellation)
+    public async Task<DeviceCatalog?> GetDevice(string prefix, string key, CancellationToken cancellation)
+    {
+        using var response = await Request("internal/catalog/sensors/by-prefix/" + Uri.EscapeDataString(prefix),
+            key, cancellation, serviceCredential: true);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        if (!response.IsSuccessStatusCode) throw Unavailable(response.StatusCode);
+        var sensor = await Read<DeviceCatalog>(response, cancellation);
+        if (string.IsNullOrWhiteSpace(sensor.Id) || sensor.Prefix != prefix ||
+            sensor.Capacity <= 0 || sensor.Limit <= 0 || sensor.Limit > sensor.Capacity)
+            throw new CatalogUnavailable("O catálogo retornou um equipamento inválido.");
+        return sensor;
+    }
+
+    private async Task<HttpResponseMessage> Request(string route, string credential, CancellationToken cancellation,
+        bool serviceCredential = false)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, route);
-        request.Headers.Authorization = AuthenticationHeaderValue.Parse(bearer);
+        if (serviceCredential)
+            request.Headers.Add("X-Saneia-Integration-Key", credential);
+        else
+            request.Headers.Authorization = AuthenticationHeaderValue.Parse(credential);
         try
         {
             // ResponseContentRead keeps the configured timeout in effect for the entire response.

@@ -150,6 +150,7 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.MapMonitoring();
+app.MapTelemetrySummary(config);
 app.MapHealthChecks("/health/live", HealthOptions("live"));
 app.MapHealthChecks("/health/ready", HealthOptions("ready"));
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();

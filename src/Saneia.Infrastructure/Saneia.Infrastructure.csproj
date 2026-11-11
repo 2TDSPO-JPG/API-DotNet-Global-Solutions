@@ -9,5 +9,6 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.26" />
     <PackageReference Include="Oracle.EntityFrameworkCore" Version="8.23.26301" />
+    <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
   </ItemGroup>
 </Project>

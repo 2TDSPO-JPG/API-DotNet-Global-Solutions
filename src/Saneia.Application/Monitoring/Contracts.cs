@@ -3,6 +3,7 @@ using System.Text.Json;
 namespace Saneia.Application.Monitoring;
 
 public sealed record Coordinate(double Latitude, double Longitude);
+public sealed record DeviceCatalog(string Id, string Prefix, decimal Capacity, decimal Limit);
 
 public sealed record CatalogSensor(
     string Id, string Prefix, string Name, string Address, string Neighborhood,
@@ -23,3 +24,8 @@ public sealed record Sample(
 public sealed record SensorEvent(string Id, string Status, string Kind, DateTimeOffset At, DateTimeOffset? EndedAt, string Message);
 
 public sealed record ReadingReceipt(string SensorId, string DeviceId, string SampleId, DateTimeOffset At, string Status);
+
+public sealed record TelemetrySummary(int Readings, double? FirstVolume, double? LastVolume,
+    double? MinVolume, double? MaxVolume, DateTimeOffset? MaxVolumeAt, double? AverageVolume,
+    double? ChangeLiters, int ReadingsAtOrAboveLimit, int AlarmEvents, double? LongestAlarmHours,
+    double? EtaHours, string CurrentStatus, DateTimeOffset? LastReadingAt);

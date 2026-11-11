@@ -12,6 +12,8 @@ public interface ITelemetryStore
 {
     Task<IReadOnlyDictionary<string, SensorSnapshot>> ReadMap(string[] ids, long alarmsFrom, CancellationToken cancellation);
     Task<SensorSnapshot> ReadDetail(string id, long alarmsFrom, CancellationToken cancellation);
+    Task<TelemetrySummary> Summarize(string id, DateTimeOffset from, DateTimeOffset to,
+        DateTimeOffset now, int intervalMinutes, decimal limit, CancellationToken cancellation);
     Task<Measurement?> Find(string deviceId, string sampleId, CancellationToken cancellation);
     Task<SensorCursor?> FindCursor(string sensorId, CancellationToken cancellation);
     Task<bool> TryAppend(Measurement reading, SensorCursor cursor, long? previousVersion, AlarmChange alarm,

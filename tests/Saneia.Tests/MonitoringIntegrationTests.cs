@@ -135,6 +135,37 @@ public sealed class MonitoringIntegrationTests
     }
 
     [Fact]
+    public async Task ServiceSummaryUsesTheWholePeriodBeyondTheDetailLimit()
+    {
+        await using var server = new ApiFactory(limit: 1000);
+        using var client = server.Operator();
+        var start = DateTimeOffset.UtcNow.AddMinutes(-20);
+        const string readings = "/api/sensors/21/readings";
+        for (var i = 0; i < 502; i++)
+        {
+            using var response = await client.PostAsJsonAsync(readings,
+                new ReadingInput("S21", $"period-{i}", start.AddSeconds(i), i == 0 ? 95 : 40));
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        var detail = await client.GetFromJsonAsync<Sensor>("/api/sensors/21");
+        Assert.Equal(500, detail!.Samples.Length);
+        var route = $"/api/internal/telemetry/sensors/21/summary?intervalMinutes=5&limit=80" +
+            $"&from={Uri.EscapeDataString(start.UtcDateTime.ToString("O"))}" +
+            $"&to={Uri.EscapeDataString(start.AddSeconds(501).UtcDateTime.ToString("O"))}";
+        using var unauthorized = await client.GetAsync(route);
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        client.DefaultRequestHeaders.Add("X-Saneia-Integration-Key", server.IntegrationKey);
+        var summary = await client.GetFromJsonAsync<TelemetrySummary>(route);
+        Assert.Equal(502, summary!.Readings);
+        Assert.Equal(95, summary.MaxVolume);
+        Assert.Equal(start, summary.MaxVolumeAt);
+        Assert.Equal(-55, summary.ChangeLiters);
+        Assert.Equal(1, summary.ReadingsAtOrAboveLimit);
+        Assert.Equal(1, summary.AlarmEvents);
+    }
+
+    [Fact]
     public async Task OpenApiDocumentsAuthenticationAndReplayResponses()
     {
         await using var server = new ApiFactory();
@@ -150,6 +181,7 @@ public sealed class MonitoringIntegrationTests
     private sealed class ApiFactory(int limit = 120, bool javaDown = false) : WebApplicationFactory<Program>
     {
         private readonly byte[] secret = RandomNumberGenerator.GetBytes(32);
+        public string IntegrationKey { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         private readonly string path = Path.Combine(Path.GetTempPath(), $"saneia-test-{Guid.NewGuid():N}.db");
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -157,6 +189,7 @@ public sealed class MonitoringIntegrationTests
             builder.UseEnvironment("Development");
             builder.UseSetting("ConnectionStrings:Sqlite", $"Data Source={path};Pooling=False");
             builder.UseSetting("RateLimit:PermitsPerMinute", limit.ToString());
+            builder.UseSetting("SANEIA_INTEGRATION_KEY", IntegrationKey);
             builder.ConfigureServices(services =>
             {
                 services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
