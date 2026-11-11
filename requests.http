@@ -1,0 +1,67 @@
+@java = http://localhost:8080/api
+@monitoring = http://localhost:5085/api
+
+### Login de operadora. Defina operatorPassword no ambiente privado do cliente HTTP.
+POST {{java}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "operadora@saneia.test",
+  "password": "{{operatorPassword}}"
+}
+
+> {%
+    client.test("Login retornou JWT", function () {
+        client.assert(response.status === 200 && response.body.token);
+    });
+    client.global.set("saneiaToken", response.body.token);
+%}
+
+### Consultar o mapa e selecionar o primeiro equipamento ativo
+GET {{monitoring}}/sensors?page=0&size=200
+Authorization: Bearer {{saneiaToken}}
+
+> {%
+    if (response.status === 200 && response.body.length) {
+        const equipment = response.body[0];
+        client.global.set("saneiaSensorId", equipment.id);
+        client.global.set("saneiaDeviceId", equipment.prefix);
+        client.global.set("saneiaLimit", equipment.limit);
+    }
+%}
+
+### Preparar uma medição nova. Para repetir a mesma operação, use a requisição seguinte.
+< {%
+    const now = new Date();
+    client.global.set("saneiaSampleAt", now.toISOString());
+    client.global.set("saneiaSampleId", "rider-" + now.getTime());
+%}
+POST {{monitoring}}/sensors/{{saneiaSensorId}}/readings
+Authorization: Bearer {{saneiaToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{saneiaDeviceId}}",
+  "sampleId": "{{saneiaSampleId}}",
+  "at": "{{saneiaSampleAt}}",
+  "volume": {{saneiaLimit}}
+}
+
+### Reenviar a mesma medição
+POST {{monitoring}}/sensors/{{saneiaSensorId}}/readings
+Authorization: Bearer {{saneiaToken}}
+Content-Type: application/json
+
+{
+  "deviceId": "{{saneiaDeviceId}}",
+  "sampleId": "{{saneiaSampleId}}",
+  "at": "{{saneiaSampleAt}}",
+  "volume": {{saneiaLimit}}
+}
+
+### Conferir a ficha e o histórico
+GET {{monitoring}}/sensors/{{saneiaSensorId}}
+Authorization: Bearer {{saneiaToken}}
+
+### Consultar dependências
+GET http://localhost:5085/health/ready
