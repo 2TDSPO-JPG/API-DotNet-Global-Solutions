@@ -39,6 +39,9 @@ public static class InfrastructureRegistration
                     ?? throw new InvalidOperationException("Configure ConnectionStrings:Oracle."));
         });
         services.AddScoped<ITelemetryStore, EfTelemetryStore>();
+        if (UsesSqlite(config) && config.GetValue<bool>("DemoData:Enabled")
+            && (config["SANEIA_INTEGRATION_KEY"]?.Length ?? 0) >= 32)
+            services.AddHostedService<SaoPauloTelemetrySeeder>();
         if (config.GetValue<bool>("Mqtt:Enabled"))
             services.AddHostedService<MqttIngestion>();
         services.AddHealthChecks()

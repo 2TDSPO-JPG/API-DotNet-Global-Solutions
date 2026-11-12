@@ -190,6 +190,7 @@ public sealed class MonitoringIntegrationTests
             builder.UseSetting("ConnectionStrings:Sqlite", $"Data Source={path};Pooling=False");
             builder.UseSetting("RateLimit:PermitsPerMinute", limit.ToString());
             builder.UseSetting("SANEIA_INTEGRATION_KEY", IntegrationKey);
+            builder.UseSetting("DemoData:Enabled", "false");
             builder.ConfigureServices(services =>
             {
                 services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>

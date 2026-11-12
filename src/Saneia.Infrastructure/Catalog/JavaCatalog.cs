@@ -11,7 +11,7 @@ public sealed class JavaCatalog(HttpClient http) : ISensorCatalog
 {
     public async Task<CatalogPage> List(string bearer, int page, int size, CancellationToken cancellation)
     {
-        var route = FormattableString.Invariant($"sensors?page={page}&size={size}");
+        var route = FormattableString.Invariant($"sensors?page={page}&size={size}&catalogOnly=true");
         using var response = await Request(route, bearer, cancellation);
         if (!response.IsSuccessStatusCode) throw Unavailable(response.StatusCode);
         var items = await Read<CatalogSensor[]>(response, cancellation);
@@ -25,7 +25,7 @@ public sealed class JavaCatalog(HttpClient http) : ISensorCatalog
     public async Task<CatalogSensor?> Get(string id, string bearer, CancellationToken cancellation)
     {
         if (id.Length is 0 or > 80 || id.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_')) return null;
-        using var response = await Request($"sensors/{Uri.EscapeDataString(id)}", bearer, cancellation);
+        using var response = await Request($"sensors/{Uri.EscapeDataString(id)}?catalogOnly=true", bearer, cancellation);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         if (!response.IsSuccessStatusCode) throw Unavailable(response.StatusCode);
         var sensor = await Read<CatalogSensor>(response, cancellation);
@@ -46,6 +46,14 @@ public sealed class JavaCatalog(HttpClient http) : ISensorCatalog
             sensor.Capacity <= 0 || sensor.Limit <= 0 || sensor.Limit > sensor.Capacity)
             throw new CatalogUnavailable("O catálogo retornou um equipamento inválido.");
         return sensor;
+    }
+
+    public async Task<DeviceCatalog[]> ListDemoDevices(string key, CancellationToken cancellation)
+    {
+        using var response = await Request("internal/catalog/sensors/demo-sp", key, cancellation,
+            serviceCredential: true);
+        if (!response.IsSuccessStatusCode) throw Unavailable(response.StatusCode);
+        return await Read<DeviceCatalog[]>(response, cancellation);
     }
 
     private async Task<HttpResponseMessage> Request(string route, string credential, CancellationToken cancellation,
