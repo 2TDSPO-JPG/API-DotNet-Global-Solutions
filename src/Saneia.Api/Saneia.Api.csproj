@@ -1,8 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>a3113921-cd46-4882-a654-d08eb0ce330e</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Saneia.Application/Saneia.Application.csproj" />
